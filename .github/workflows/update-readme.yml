@@ -1,0 +1,75 @@
+name: Update README
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Update README with latest commits
+      run: |
+        # Get the current date
+        CURRENT_DATE=$(date '+%B %d, %Y at %H:%M UTC')
+        
+        # Get recent commits (last 5)
+        COMMITS=$(git log --oneline -5 --pretty=format:"- \`%h\` %s (%cr)" --date=relative)
+        
+        # Export environment variables
+        export COMMITS="$COMMITS"
+        export CURRENT_DATE="$CURRENT_DATE"
+        
+        # Use Python to safely update the README
+        python3 << 'EOF'
+import re
+import os
+
+# Get environment variables
+commits = os.environ.get('COMMITS', '')
+current_date = os.environ.get('CURRENT_DATE', '')
+
+# Read the current README
+with open('README.md', 'r') as f:
+    content = f.read()
+
+# Update the commits section
+pattern = r'(<!-- AUTO-GENERATED-COMMITS-START -->).*?(<!-- AUTO-GENERATED-COMMITS-END -->)'
+replacement = r'\1\n' + commits + '\n\2'
+content = re.sub(pattern, replacement, content, flags=re.DOTALL)
+
+# Update the date
+content = content.replace('<!-- AUTO-GENERATED-DATE -->', current_date)
+
+# Write back the updated content
+with open('README.md', 'w') as f:
+    f.write(content)
+
+print("README updated successfully!")
+EOF
+    
+    - name: Check for changes
+      id: changes
+      run: |
+        if git diff --quiet README.md; then
+          echo "has_changes=false" >> $GITHUB_OUTPUT
+        else
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Commit and push changes
+      if: steps.changes.outputs.has_changes == 'true'
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add README.md
+        git commit -m "📝 Auto-update README with latest repository activity"
+        git push
