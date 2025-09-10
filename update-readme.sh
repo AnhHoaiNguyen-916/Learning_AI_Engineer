@@ -30,8 +30,9 @@ pattern = r'(<!-- AUTO-GENERATED-COMMITS-START -->).*?(<!-- AUTO-GENERATED-COMMI
 replacement = r'\1\n' + commits + '\n\2'
 content = re.sub(pattern, replacement, content, flags=re.DOTALL)
 
-# Update the date
-content = content.replace('<!-- AUTO-GENERATED-DATE -->', '$CURRENT_DATE')
+# Update the date - look for the pattern after "Last Updated": 
+date_pattern = r'(\*\*Last Updated\*\*: )([^\\n]*)'
+content = re.sub(date_pattern, r'\1$CURRENT_DATE', content)
 
 # Write back the updated content
 with open('README.md', 'w') as f:
